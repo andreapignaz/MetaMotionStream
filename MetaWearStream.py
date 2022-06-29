@@ -21,10 +21,12 @@ class State:
         self.gyrosamples = 0
         self.magsamples = 0
         self.tempsamples = 0
+        self.presssamples = 0
         self.accCallback = FnVoid_VoidP_DataP(self.acc_data_handler)
         self.gyroCallback = FnVoid_VoidP_DataP(self.gyro_data_handler)
         self.magCallback = FnVoid_VoidP_DataP(self.mag_data_handler)
         self.tempCallback = FnVoid_VoidP_DataP(self.temp_data_handler)
+        self.pressCallback = FnVoid_VoidP_DataP(self.press_data_handler)
 
     # acc callback
     def acc_data_handler(self, ctx, data):
@@ -45,6 +47,11 @@ class State:
     def temp_data_handler(self, ctx, data):
         print("TEMP: %s -> %s" % (self.device.address, parse_value(data)))
         self.tempsamples += 1
+
+    #pressure callback
+    def press_data_handler(self, ctx, data):
+        print("PRESS: %s -> %s" % (self.device.address, parse_value(data)))
+        self.presssamples += 1
 
 states = []
 
@@ -76,7 +83,13 @@ for s in states:
     libmetawear.mbl_mw_gyro_bmi270_set_range(s.device.board, GyroBoschRange._1000dps);
     libmetawear.mbl_mw_gyro_bmi270_set_odr(s.device.board, GyroBoschOdr._100Hz);
     libmetawear.mbl_mw_gyro_bmi270_write_config(s.device.board);
-
+    
+    #setup pressure
+    libmetawear.mbl_mw_baro_bosch_set_oversampling(s.device.board, BaroBoschOversampling.LOW_POWER)
+    libmetawear.mbl_mw_baro_bmp280_set_standby_time(s.device.board, BaroBmp280StandbyTime._1000ms)
+    libmetawear.mbl_mw_baro_bosch_set_iir_filter(s.device.board, BaroBoschIirFilter.AVG_16)
+    libmetawear.mbl_mw_baro_bosch_write_config(s.device.board)
+     
     # setup mag
     #Stop the magnetometer
     libmetawear.mbl_mw_mag_bmm150_stop(s.device.board)
@@ -107,6 +120,10 @@ for s in states:
     # get mag and subscribe
     mag = libmetawear.mbl_mw_mag_bmm150_get_b_field_data_signal(s.device.board)
     libmetawear.mbl_mw_datasignal_subscribe(mag, None, s.magCallback)
+    
+    #get press and subscribe
+    pa_data_signal = libmetawear.mbl_mw_baro_bosch_get_pressure_data_signal(s.device.board)
+    libmetawear.mbl_mw_datasignal_subscribe(pa_data_signal, None, s.pressCallback)
 
     # start acc
     libmetawear.mbl_mw_acc_enable_acceleration_sampling(s.device.board)
@@ -119,12 +136,15 @@ for s in states:
     # start mag
     libmetawear.mbl_mw_mag_bmm150_enable_b_field_sampling(s.device.board)
     libmetawear.mbl_mw_mag_bmm150_start(s.device.board)
+    
+    #start press
+    libmetawear.mbl_mw_baro_bosch_start(s.device.board)
 
     # start temperature timer
     libmetawear.mbl_mw_timer_start(timer)
 
 # sleep
-sleep(50.0)
+sleep(10.0)
 
 # stop
 for s in states:
@@ -165,4 +185,6 @@ for s in states:
     print("GYR -> %d" % ( s.gyrosamples))
     print("MAG -> %d" % (s.magsamples))
     print("TEMP -> %d" % (s.tempsamples))
+    print("PRESS -> %d" % (s.presssamples))
+    
 
