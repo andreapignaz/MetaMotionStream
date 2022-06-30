@@ -8,7 +8,8 @@ from threading import Event
 
 import platform
 import sys
-
+import re
+import os
 
 # -------------------------------------------------------------------------------
 #
@@ -16,11 +17,14 @@ import sys
 #
 # -------------------------------------------------------------------------------
 
+
+device_name = " " 
 metamotion_mac_address = " "
 bluetooth_adapter_mac_address = " "
 sampling_time = 2.0
 
-if(metamotion_mac_address == " " or bluetooth_adapter_mac_address == " "):
+
+if(metamotion_mac_address == " " or bluetooth_adapter_mac_address == " " or device_name == " "):
 	print("You did not setup the script for connection. \nPlease open the .py file and compile the mac address variables!")
 	exit()
 
@@ -30,32 +34,40 @@ if sys.version_info[0] == 2:
     
 # acc callback
 def acc_data_handler(ctx, data):
-	global d, accsamples
-	print("ACC: %s -> %s" % (d.address, parse_value(data)))
+	global d, accsamples, accFile, r
+	#print("ACC: %s -> %s" % (d.address, parse_value(data)))
+	axisValues = r.findall(str(parse_value(data)))  
+	accFile.write("%d,%s,%s,%s\n" % (data.contents.epoch, axisValues[0],  axisValues[1],  axisValues[2]))
 	accsamples += 1
 
 # gyro callback
 def gyro_data_handler(ctx, data):
-	global d, gyrosamples
-	print("GYRO: %s -> %s" % (d.address, parse_value(data)))
+	global d, gyrosamples, gyroFile
+	#print("GYRO: %s -> %s" % (d.address, parse_value(data)))
+	axisValues = r.findall(str(parse_value(data)))  
+	gyroFile.write("%d,%s,%s,%s\n" % (data.contents.epoch, axisValues[0],  axisValues[1],  axisValues[2]))
 	gyrosamples += 1
 
 # mag callback
 def mag_data_handler(ctx, data):
-	global d, magsamples
-	print("MAG: %s -> %s" % (d.address, parse_value(data)))
+	global d, magsamples, magFile
+	#print("MAG: %s -> %s" % (d.address, parse_value(data)))
+	axisValues = r.findall(str(parse_value(data)))  
+	magFile.write("%d,%s,%s,%s\n" % (data.contents.epoch, axisValues[0],  axisValues[1],  axisValues[2]))
 	magsamples += 1
 
 #temp callback
 def temp_data_handler(ctx, data):
-	global d, tempsamples
-	print("TEMP: %s -> %s" % (d.address, parse_value(data)))
+	global d, tempsamples, tempFile
+	#print("TEMP: %s -> %s" % (d.address, parse_value(data)))
+	tempFile.write("%d,%s\n" % (data.contents.epoch, parse_value(data)))
 	tempsamples += 1
 
 #pressure callback
 def press_data_handler(ctx, data):
-	global d, presssamples
-	print("PRESS: %s -> %s" % (d.address, parse_value(data)))
+	global d, presssamples, pressFile
+	#print("PRESS: %s -> %s" % (d.address, parse_value(data)))
+	pressFile.write("%d,%s\n" % (data.contents.epoch, parse_value(data)))
 	presssamples += 1
 
 accsamples = 0
@@ -68,6 +80,31 @@ gyroCallback = FnVoid_VoidP_DataP(gyro_data_handler)
 magCallback = FnVoid_VoidP_DataP(mag_data_handler)
 tempCallback = FnVoid_VoidP_DataP(temp_data_handler)
 pressCallback = FnVoid_VoidP_DataP(press_data_handler)
+
+# create files
+filename = "output/acc_" + device_name + ".csv"
+os.makedirs(os.path.dirname(filename), exist_ok=True)
+accFile = open(filename, "w")
+accFile.write("epoch,valueX,valueY,valueZ\n")
+
+filename = "output/gyro_" + device_name + ".csv"
+gyroFile = open(filename, "w")
+gyroFile.write("epoch,valueX,valueY,valueZ\n")
+
+filename = "output/mag_" + device_name + ".csv"
+magFile = open(filename, "w")
+magFile.write("epoch,valueX,valueY,valueZ\n")
+
+filename = "output/temp_" + device_name + ".csv"
+tempFile = open(filename, "w")
+tempFile.write("epoch,value\n")
+
+filename = "output/press" + device_name + ".csv"
+pressFile = open(filename, "w")
+pressFile.write("epoch,value\n") 
+
+# define a regular expression to take axes from the output - will match all floats
+r = re.compile("[+-]?[0-9]*[.][0-9]+")
 
 # connect to the MetaWear sensor, using the address specified before
 
@@ -203,3 +240,4 @@ print("MAG -> %d" % (magsamples))
 print("TEMP -> %d" % (tempsamples))
 print("PRESS -> %d" % (presssamples))
     
+
